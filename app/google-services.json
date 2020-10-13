@@ -1,0 +1,77 @@
+{
+  "project_info": {
+    "project_number": "89527468196",
+    "firebase_url": "https://realtimechat-9b012.firebaseio.com",
+    "project_id": "realtimechat-9b012",
+    "storage_bucket": "realtimechat-9b012.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:89527468196:android:1a38223a6fbc66a012a631",
+        "android_client_info": {
+          "package_name": "jp.gr.java_conf.atsushitominaga.realtimechata"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "89527468196-rnc535o1lluevr1tesqb2gsbsmab8nnr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTk0O0NLuQ0lVVsdZdprIaEr_G8nWutT4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "89527468196-rnc535o1lluevr1tesqb2gsbsmab8nnr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:89527468196:android:f4630052ed569ffe12a631",
+        "android_client_info": {
+          "package_name": "jp.tominaga.atsushi.realtimechat4"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "89527468196-sat4328a0p5es15up6buodpkjjfdtjmb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "jp.tominaga.atsushi.realtimechat4",
+            "certificate_hash": "0c9e7a2e721af4e72bbce493b42bd99c1ee194f3"
+          }
+        },
+        {
+          "client_id": "89527468196-rnc535o1lluevr1tesqb2gsbsmab8nnr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTk0O0NLuQ0lVVsdZdprIaEr_G8nWutT4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "89527468196-rnc535o1lluevr1tesqb2gsbsmab8nnr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

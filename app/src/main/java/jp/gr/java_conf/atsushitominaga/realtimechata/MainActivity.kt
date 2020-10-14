@@ -1,8 +1,10 @@
 package jp.gr.java_conf.atsushitominaga.realtimechata
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.ContactsContract
 import android.view.Gravity
 import android.view.Menu
 import android.view.MenuItem
@@ -26,17 +28,26 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.dynamiclinks.ktx.androidParameters
 import com.google.firebase.dynamiclinks.ktx.dynamicLink
 import com.google.firebase.dynamiclinks.ktx.dynamicLinks
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.android.synthetic.main.nav_header_main.*
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
 
     var firebaseAuth: FirebaseAuth? = null
     var firebaseUser: FirebaseUser? = null
+    var firebaseReference : DatabaseReference? = null
+
+    var userName: String = ""
+    var userPhotoUrl: String = ""
 
     lateinit var mGoogleSignInClient: GoogleSignInClient
 
@@ -59,12 +70,32 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         loginCheck()
 
+        firebaseReference = FirebaseDatabase.getInstance().reference
+
+        btnSend.setOnClickListener {
+            postMessage()
+        }
+
+        btnAddPhoto.setOnClickListener {
+            postImage()
+        }
+
+
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
 
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso)
+    }
+
+
+
+
+    private fun postMessage() {
+        val model = MessageModel(userName, userPhotoUrl, inputMessage.text.toString(), "")
+        firebaseReference!!.child(MY_CHAT_TBL).push().setValue(model)
+        inputMessage.setText("")
     }
 
     private fun loginCheck() {
@@ -89,6 +120,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         val textUserEmail = nav_header.findViewById<TextView>(R.id.text_user_id)
         textUserName.text = firebaseUser.displayName
         textUserEmail.text = firebaseUser.email
+
+        userName = firebaseUser.displayName!!
+        userPhotoUrl = firebaseUser.photoUrl.toString()
 
 
     }
@@ -152,11 +186,58 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     }
 
+    private fun postImage() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "image/*"
+        }
+        startActivityForResult(intent,REQUEST_GET_IMAGE)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
         when(requestCode){
+            REQUEST_GET_IMAGE -> getImageResult(resultCode,data)
 
+        }
+    }
+
+    private fun getImageResult(resultCode: Int, data: Intent?) {
+        if (resultCode != Activity.RESULT_OK){
+            makeToast(this@MainActivity, getString(R.string.get_image_failed))
+            return
+        }
+
+        if(data == null) return
+        val uriFromDevice = data.data
+
+        val tempMessage = MessageModel(userName, userPhotoUrl,"","")
+        firebaseReference!!.child(MY_CHAT_TBL).push().setValue(tempMessage){ databaseError, databaseReference ->
+            if(databaseError != null){
+                makeToast(this@MainActivity, getString(R.string.db_write_error))
+                return@setValue
+            }
+            val key = databaseReference.key
+            val storageRef = FirebaseStorage.getInstance().getReference(firebaseUser!!.uid).child(key!!)
+                .child(uriFromDevice!!.lastPathSegment!!)
+            putImageStorage(storageRef,uriFromDevice,key)
+
+        }
+
+    }
+
+    private fun putImageStorage(storageRef: StorageReference, uriFromDevice: Uri, key: String) {
+        storageRef.putFile(uriFromDevice!!).continueWithTask { task ->
+            if (!task.isSuccessful){ }
+            return@continueWithTask storageRef.downloadUrl
+        }.addOnCompleteListener { task ->
+            if (!task.isSuccessful){
+                makeToast(this@MainActivity,getString(R.string.image_upload_error))
+                return@addOnCompleteListener
+            }
+            val chatMessage = MessageModel(userName, userPhotoUrl,"",task.result.toString())
+            firebaseReference!!.child(MY_CHAT_TBL).child(key!!).setValue(chatMessage)
         }
     }
 

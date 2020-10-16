@@ -5,9 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
-import android.view.Gravity
-import android.view.Menu
-import android.view.MenuItem
+import android.view.*
 import android.widget.TextView
 import androidx.appcompat.app.ActionBarDrawerToggle
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -21,15 +19,20 @@ import androidx.navigation.ui.setupWithNavController
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.firebase.ui.database.FirebaseRecyclerAdapter
+import com.firebase.ui.database.FirebaseRecyclerOptions
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.*
 import com.google.firebase.dynamiclinks.ktx.androidParameters
 import com.google.firebase.dynamiclinks.ktx.dynamicLink
 import com.google.firebase.dynamiclinks.ktx.dynamicLinks
@@ -37,6 +40,7 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.chat_content.*
 import kotlinx.android.synthetic.main.content_main.*
 import kotlinx.android.synthetic.main.nav_header_main.*
 
@@ -45,6 +49,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     var firebaseAuth: FirebaseAuth? = null
     var firebaseUser: FirebaseUser? = null
     var firebaseReference : DatabaseReference? = null
+    var layoutManager: LinearLayoutManager? = null
+    lateinit var firebaseAdapter: FirebaseRecyclerAdapter<MessageModel, MessageHolder>
+
 
     var userName: String = ""
     var userPhotoUrl: String = ""
@@ -71,6 +78,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         loginCheck()
 
         firebaseReference = FirebaseDatabase.getInstance().reference
+        displayChatData()
 
         btnSend.setOnClickListener {
             postMessage()
@@ -89,7 +97,141 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         mGoogleSignInClient = GoogleSignIn.getClient(this, gso)
     }
 
+    override fun onResume() {
+        super.onResume()
+        firebaseAdapter.startListening()
+    }
 
+    override fun onPause() {
+        super.onPause()
+        firebaseAdapter.stopListening()
+    }
+
+    private fun displayChatData() {
+        layoutManager = LinearLayoutManager(this)
+        layoutManager!!.stackFromEnd = true
+        chatList.layoutManager = layoutManager
+
+        val query = firebaseReference!!.child(MY_CHAT_TBL).limitToLast(50)
+
+        val options = FirebaseRecyclerOptions.Builder<MessageModel>()
+            .setQuery(query, MessageModel::class.java)
+            .build()
+
+        firebaseAdapter = object : FirebaseRecyclerAdapter<MessageModel, MessageHolder>(options){
+            override fun onCreateViewHolder(p0: ViewGroup, p1: Int): MessageHolder {
+                val view = LayoutInflater.from(p0!!.context).inflate(R.layout.chat_content, p0, false)
+                return MessageHolder(view)
+
+            }
+            override fun onBindViewHolder(holder: MessageHolder, position: Int, model: MessageModel) {
+                setUserContents(holder,model)
+                setChatContents(holder,model)
+
+            }
+        }
+        chatList.adapter = firebaseAdapter
+
+        firebaseAdapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver(){
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) {
+                super.onItemRangeInserted(positionStart, itemCount)
+                val chatMessageCont = firebaseAdapter.itemCount
+                val lastVisiblePosition = layoutManager!!.findLastCompletelyVisibleItemPosition()
+
+                if (lastVisiblePosition == -1 || positionStart > chatMessageCont -1 && lastVisiblePosition == positionStart -1){
+                    chatList.scrollToPosition(positionStart)
+                }
+
+                firebaseReference!!.child(MY_CHAT_TBL).addChildEventListener(object : ChildEventListener {
+                    override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+
+                        val newMessage = snapshot!!.getValue(MessageModel::class.java)
+                        if (newMessage!!.userName != userName) sendNotification(newMessage)
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+
+                    }
+
+                    override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {
+
+                    }
+
+                    override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
+
+                    }
+
+
+
+                    override fun onChildRemoved(snapshot: DataSnapshot) {
+
+                    }
+
+                })
+            }
+        })
+
+    }
+
+    private fun sendNotification(newMessage: MessageModel) {
+
+
+    }
+
+    private fun setUserContents(holder: MessageHolder, model: MessageModel) {
+        holder.text_user_name.text = model.userName
+        if(model.userPhotoUrl != ""){
+            Glide.with(this)
+                .load(Uri.parse(model.userPhotoUrl))
+                .into(holder.image_user)
+
+            return
+        }
+        holder.image_user.setImageDrawable(ContextCompat.getDrawable(this@MainActivity,R.drawable.ic_account_circle_black_24dp))
+    }
+
+    private fun setChatContents(holder: MessageHolder, model: MessageModel) {
+        if (model.postedMessage != ""){
+            holder.apply {
+                text_posted.text =model.postedMessage
+                text_posted.visibility = View.VISIBLE
+                image_posted.visibility = View.GONE
+
+            }
+            return
+        }
+        setImageContent(holder,model)
+
+    }
+
+    private fun setImageContent(holder: MessageHolder, model: MessageModel) {
+        val imageUrl = model.postedImageUrl
+        holder.apply{
+            text_posted.visibility = View.INVISIBLE
+            image_posted.visibility = View.VISIBLE
+        }
+        if(!imageUrl.startsWith("gs//")){
+            Glide.with(holder.image_posted.context)
+                .load(model.postedImageUrl)
+                .into(holder.image_posted)
+            return
+        }
+
+        val storageRef = FirebaseStorage.getInstance().getReferenceFromUrl(imageUrl)
+        storageRef.downloadUrl.addOnCompleteListener { task ->
+            if (!task.isSuccessful){
+                makeToast(this@MainActivity, getString(R.string.connection_failed))
+                return@addOnCompleteListener
+            }
+            val downloadUrl = task.result
+            Glide.with(this)
+                .load(downloadUrl)
+                .into(holder.image_posted)
+        }
+
+
+
+    }
 
 
     private fun postMessage() {
